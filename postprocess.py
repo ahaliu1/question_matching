@@ -513,3 +513,86 @@ with open('data/tmp_data/text_corrector_pinyin_idx-flag.txt', 'w', encoding='utf
         f.write(str(label) + '\n')
 
 # ==============================多音字、模糊拼音纠错=================================
+
+
+# ==============================数字修改识别=================================
+# Lexical Semantics Word & Phrase replace num
+import Levenshtein
+
+
+def read_text_pair(data_path, is_test=False):
+    """Reads data."""
+    ret = []
+    with open(data_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            data = line.rstrip().split("\t")
+            if is_test == False:
+                if len(data) != 3:
+                    continue
+                ret.append({'query1': data[0], 'query2': data[1], 'label': data[2]})
+            else:
+                if len(data) != 2:
+                    continue
+                ret.append({'query1': data[0], 'query2': data[1]})
+    return ret
+
+
+def check_number(query1, query2, max_op_times=2):
+    """ 检查query1和query2是否是由修改数字得到的 —— 标签为N """
+    editops = Levenshtein.editops(query1, query2)
+    cnt = 0
+    if 0 < len(editops) <= max_op_times:  # 只检测修改长度<=max_op_times的问题对
+        for op_seq in editops:
+            op, pos1, pos2 = op_seq
+            if op == 'delete':
+                if query1[pos1].isdigit():
+                    cnt += 1
+            elif op == 'insert':
+                if query2[pos2].isdigit():
+                    cnt += 1
+            elif op == 'replace':
+                if query1[pos1].isdigit() and query2[pos2].isdigit():
+                    cnt += 1
+        return cnt == len(editops)
+    return False
+
+
+test_data = read_text_pair('data/raw_data/test_A.tsv', True)
+
+fix_idx_pos = []
+fix_idx_neg = []
+for i, d in enumerate(test_data):
+    if check_number(d['query1'], d['query2'], 999):
+        fix_idx_neg.append(i)
+print("Num of fix_idx_pos items: ", len(fix_idx_pos))
+print("Num of fix_idx_neg items: ", len(fix_idx_neg))
+
+raw_result_path = "data/results/predict_result_0.9161848905525323_fuzzy-pinyin_heteronym.csv"
+final_result_path = "data/results/predict_result_0.9161848905525323_fuzzy-pinyin_heteronym_postop-num999.csv"
+
+# fix result
+result_f = []
+with open(raw_result_path, 'r', encoding='utf-8') as f:
+    for idx, line in enumerate(f.readlines()):
+        label = int(line.strip())
+        result_f.append(label)
+
+cnt = 0
+fixed_data = []
+for f_idx in fix_idx_neg:
+    if result_f[f_idx] == 1:  # !!
+        fixed_data.append(test_data[f_idx])
+        cnt += 1
+    result_f[f_idx] = 0  # !! 注意修改的标签
+print("Num of data need to be fixed: ", cnt)
+
+with open(final_result_path, 'w', encoding='utf-8') as f:
+    for i, label in enumerate(result_f):
+        f.write(str(label) + '\n')
+
+with open('data/tmp_data/postop_idx-flag.txt', 'w', encoding='utf-8') as f:
+    for i in range(len(test_data)):
+        label = 2 if i in fix_idx_neg + fix_idx_pos else -1
+        f.write(str(label) + '\n')
+
+# ==============================数字修改识别=================================
