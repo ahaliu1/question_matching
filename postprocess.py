@@ -4,7 +4,7 @@ version:
 Author: Tingyu Liu
 Date: 2021-10-11 10:09:34
 LastEditors: Tingyu Liu
-LastEditTime: 2021-10-15 19:52:47
+LastEditTime: 2021-11-10 15:26:17
 '''
 # %%
 import pandas as pd
@@ -415,7 +415,7 @@ def read_text_pair(data_path, is_test=False):
     return ret
 
 
-test_path = 'data/raw_data/test_A.tsv'
+test_path = './data/test_A.tsv'
 test_data = read_text_pair(test_path, is_test=True)
 
 fix_idx = []
@@ -483,8 +483,8 @@ print("Num of fix index: ", len(fix_idx))
 #     print(test_data[idx])
 
 
-raw_result_path = "data/results/predict_result_0.9161848905525323.csv"
-final_result_path = "data/results/predict_result_0.9161848905525323_fuzzy-pinyin_heteronym.csv"
+raw_result_path = "./baseline/14_predict_result"
+final_result_path = "data/results/14_predict_result.csv"
 
 # fix result
 result_f = []
