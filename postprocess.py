@@ -4,7 +4,7 @@ version:
 Author: Tingyu Liu
 Date: 2021-10-11 10:09:34
 LastEditors: Tingyu Liu
-LastEditTime: 2021-10-15 19:52:47
+LastEditTime: 2021-11-16 15:07:28
 '''
 # %%
 import pandas as pd
@@ -513,3 +513,46 @@ with open('data/tmp_data/text_corrector_pinyin_idx-flag.txt', 'w', encoding='utf
         f.write(str(label) + '\n')
 
 # ==============================多音字、模糊拼音纠错=================================
+
+# %%
+# ==============================词语成语替换=================================
+def read_text_pair(data_path, is_test=False):
+    """Reads data."""
+    with open(data_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            data = line.rstrip().split("\t")
+            if is_test == False:
+                if len(data) != 3:
+                    continue
+                yield {'query1': data[0], 'query2': data[1], 'label': data[2]}
+            else:
+                if len(data) != 2:
+                    continue
+                yield {'query1': data[0], 'query2': data[1]}
+
+def read_label(data_path):
+    with open(data_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            data = line.rstrip()
+            yield data
+data = read_text_pair("/home/lty/code/question_matching/data/test_A.tsv",is_test=True)
+# 提交的预测标签
+labels = read_label("/home/lty/code/question_matching/data/results/1116sota_91618_fuzzy-pinyin_heteronym_postop-num999_ss1111-as1115-na1114-neworder.csv")
+
+change_count = 0
+new_label = []
+for row,label in zip(data,labels):
+    q1 = row['query1']
+    q2 = row['query2']
+    if ("成语" in q1 and "词语" in q2) or ("成语" in q2 and "词语" in q1):
+        change_count+=1
+        print(q1,q2,label)
+        label = '0'
+    new_label.append(label)
+print(change_count)
+# 输出文件路径
+with open("/home/lty/code/question_matching/data/results/1116_ciyuchengyu.csv","w+") as f:
+    for l in new_label:
+        f.write(l)
+        f.write("\n")
+# ==============================词语成语替换=================================
