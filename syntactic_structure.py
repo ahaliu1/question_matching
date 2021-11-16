@@ -1,11 +1,26 @@
 # coding: utf-8
 import json
+
 import jieba
 import jieba.posseg as pseg
 import Levenshtein
 from LAC import LAC
 
 lac = LAC(mode='lac')
+
+# 修改结巴分词，使得分词的时候这些词能够被正确切分
+jieba.add_word('身高', tag='n', freq=1000)
+jieba.add_word('北京大学', tag='nt', freq=1000)
+jieba.suggest_freq(['北京大学', '哲学系'], tune=True)
+
+# 载入自定义的近义词表
+similar_words_path = "data/tmp_data/similar_words.txt"
+similar_words_dict = {}
+with open(similar_words_path, 'r', encoding='utf-8') as f:
+    for line in f.readlines():
+        words = line.strip().split(',')
+        for i in range(len(words)):
+            similar_words_dict[words[i]] = words[0]  # key为被替换的词，value为替换后的词（同一行的第一个词）
 
 
 def read_text_pair(data_path, is_test=False):
@@ -153,8 +168,13 @@ def check_Asymmetry1111(q1, q2):
         if res_exchange is None:
             return False
 
+        # 交换词
         w1 = q1[res_exchange[0][0]: res_exchange[0][1] + 1]
         w2 = q1[res_exchange[1][0]: res_exchange[1][1] + 1]
+
+        # 保证交换词词性相同 （有效
+        if lac.run(w1)[1][0] != lac.run(w2)[1][0]:
+            return False
 
         verb_idx_1 = -1
         res1 = []
@@ -177,6 +197,139 @@ def check_Asymmetry1111(q1, q2):
             if verb_idx_2 != -1:
                 return True
     return False
+
+
+def check_NegativeAsymmetry(q1, q2):
+    if '比' in q1 and '比' in q2:
+        pseg_res1 = [[w, f] for w, f in pseg.cut(q1)]
+        pseg_res2 = [[w, f] for w, f in pseg.cut(q2)]
+
+        # 同义词替换
+        for i in range(len(pseg_res1)):
+            ori_word = pseg_res1[i][0]
+            if ori_word in similar_words_dict:
+                tmp = pseg.lcut(similar_words_dict[ori_word])
+                assert len(tmp) == 1
+                pseg_res1[i][0] = tmp[0].word
+                pseg_res1[i][1] = tmp[0].flag
+        for i in range(len(pseg_res2)):
+            ori_word = pseg_res2[i][0]
+            if ori_word in similar_words_dict:
+                tmp = pseg.lcut(similar_words_dict[ori_word])
+                assert len(tmp) == 1
+                pseg_res2[i][0] = tmp[0].word
+                pseg_res2[i][1] = tmp[0].flag
+
+        def get_bi_adj_idx(pseg_res):
+            bi_idx, adj_idx = -1, -1
+
+            if ['更', 'd'] in pseg_res:  # 优先找"更"后面的形容词
+                tmp_idx = pseg_res.index(['更', 'd'])
+                for i in range(tmp_idx, len(pseg_res)):
+                    w, f = pseg_res[i]
+                    if f == 'a' or f == 'm' or f == 'd':  # 找到的第一个形容词
+                        adj_idx = i
+                        break
+
+            for i in range(len(pseg_res)):
+                w, f = pseg_res[i]
+                if w == '比' and f == 'p' and bi_idx == -1:
+                    bi_idx = i
+                if bi_idx != -1 and (f == 'a' or f == 'm' or f == 'd') and adj_idx == -1:  # 找到的第一个形容词
+                    adj_idx = i
+                if bi_idx != -1 and adj_idx != -1:
+                    break
+            return bi_idx, adj_idx
+
+        def get_n_idx(pseg_res, bi_idx, adj_idx):
+            n1_idx, n2_idx = -1, -1
+            if bi_idx == -1 or adj_idx == -1:
+                return n1_idx, n2_idx
+
+            for i in range(len(pseg_res)):
+                if 0 <= i < bi_idx and 'n' in pseg_res[i][1] and n1_idx == -1:
+                    n1_idx = i
+                if bi_idx < i < adj_idx and 'n' in pseg_res[i][1] and n2_idx == -1:
+                    n2_idx = i
+                if n1_idx != -1 and n2_idx != -1:
+                    break
+            return n1_idx, n2_idx
+
+        bi_idx1, adj_idx1 = get_bi_adj_idx(pseg_res1)
+        bi_idx2, adj_idx2 = get_bi_adj_idx(pseg_res2)
+        n1_idx1, n2_idx1 = get_n_idx(pseg_res1, bi_idx1, adj_idx1)
+        n1_idx2, n2_idx2 = get_n_idx(pseg_res2, bi_idx2, adj_idx2)
+
+        if 0 <= n1_idx1 < bi_idx1 < n2_idx1 < adj_idx1 and \
+                0 <= n1_idx2 < bi_idx2 < n2_idx2 < adj_idx2 and \
+                pseg_res1[n1_idx1][0] == pseg_res2[n2_idx2][0] and \
+                pseg_res1[n2_idx1][0] == pseg_res2[n1_idx2][0] and \
+                pseg_res1[adj_idx1][0] != pseg_res2[adj_idx2][0]:
+            return True
+
+    return False
+
+
+def check_NegativeAsymmetry1114(q1, q2):
+    if '比' in q1 and '比' in q2:
+        res_exchange = check_exchange_replace(q1, q2)
+        if res_exchange is None:
+            return None
+
+        tmp = lac.run(q1)
+        pseg_res1 = [[tmp[0][i], tmp[1][i]] for i in range(len(tmp[0]))]
+        tmp = lac.run(q2)
+        pseg_res2 = [[tmp[0][i], tmp[1][i]] for i in range(len(tmp[0]))]
+
+        # 同义词替换
+        for i in range(len(pseg_res1)):
+            ori_word = pseg_res1[i][0]
+            if ori_word in similar_words_dict:
+                tmp = pseg.lcut(similar_words_dict[ori_word])
+                assert len(tmp) == 1
+                pseg_res1[i][0] = tmp[0].word
+                pseg_res1[i][1] = tmp[0].flag
+        for i in range(len(pseg_res2)):
+            ori_word = pseg_res2[i][0]
+            if ori_word in similar_words_dict:
+                tmp = pseg.lcut(similar_words_dict[ori_word])
+                assert len(tmp) == 1
+                pseg_res2[i][0] = tmp[0].word
+                pseg_res2[i][1] = tmp[0].flag
+
+        def get_bi_adj_idx(pseg_res):
+            """ 获取"比"和形容词在句中的位置(pseg_idx) """
+
+            bi_idx, adj_idx = -1, -1
+
+            if ['更', 'd'] in pseg_res:  # 优先找"更"后面的形容词
+                tmp_idx = pseg_res.index(['更', 'd'])
+                for i in range(tmp_idx, len(pseg_res)):
+                    w, f = pseg_res[i]
+                    if f == 'a':  # 找到的第一个形容词
+                        adj_idx = i
+                        break
+
+            for i in range(len(pseg_res)):
+                w, f = pseg_res[i]
+                if w == '比' and f == 'p' and bi_idx == -1:
+                    bi_idx = i
+                if bi_idx != -1 and (f == 'a') and adj_idx == -1:  # 找到的第一个形容词
+                    adj_idx = i
+                if bi_idx != -1 and adj_idx != -1:
+                    break
+            return bi_idx, adj_idx
+
+        bi_idx1, adj_idx1 = get_bi_adj_idx(pseg_res1)
+        bi_idx2, adj_idx2 = get_bi_adj_idx(pseg_res2)
+
+        if 0 < bi_idx1 < adj_idx1 and 0 < bi_idx2 < adj_idx2:
+            if pseg_res1[adj_idx1][0] == pseg_res2[adj_idx2][0]:  # 交换比较主语，形容词相同 -- label=N
+                return "neg"
+            else:  # 交换比较主语，形容词不相同 -- label=Y
+                return "pos"
+
+    return None
 
 
 def check_exchange_replace(query1, query2, forward=False):
@@ -270,7 +423,7 @@ if __name__ == '__main__':
     label_Y_idx = []  # 标签为1的数据idx
     label_N_idx = []  # 标签为0的数据idx
 
-    # --Symmetry
+    # ==================== Symmetry ====================
     # ss_data_idx = []
     # for i, d in enumerate(test_unify_number):
     #     if check_Symmetry(d['query1'], d['query2']):
@@ -290,14 +443,13 @@ if __name__ == '__main__':
     for i in range(min(5, len(ss_data))):
         print(ss_data[i])
 
-    # --Asymmetry
+    # ==================== Asymmetry ====================
     # as_data_idx = []
     # for i, d in enumerate(test_unify_number):
     #     if check_Asymmetry(d['query1'], d['query2']):
     #         as_data_idx.append(i)
     # print("Num Asymmetry items: ", len(as_data_idx))
 
-    # --Asymmetry
     as_data_idx2 = []
     for i, d in enumerate(test_unify_number):
         if check_Asymmetry1111(d['query1'], d['query2']) and i not in label_Y_idx:  # 简单检查:有交换就属于N
@@ -308,15 +460,52 @@ if __name__ == '__main__':
     for i in range(min(5, len(as_data))):
         print(as_data[i])
 
-    # output
-    raw_result_path = "data/results/predict_result_0.9161848905525323_fuzzy-pinyin-heteronym_postop-num999.csv"
-    final_result_path = "data/results/predict_result_0.91618_fuzzy-pinyin-heteronym_postop-num999_ss1111.csv"
+    # ==================== Negative Asymmetry ====================
+    # na_data_idx = []
+    # for i, d in enumerate(test_data):
+    #     if check_NegativeAsymmetry(d['query1'], d['query2']):
+    #         na_data_idx.append(i)
+    # print("Num Negative Asymmetry items: ", len(na_data_idx))
+    #
+    # label_Y_idx.extend(na_data_idx)
+    # na_data = [test_data[i] for i in na_data_idx]
+    # print("samples Negative Asymmetry:") # 9条
+    # for i in range(max(5, len(na_data))):
+    #     print(na_data[i])
+
+    # 1114 NA
+    na_neg_data_idx = []
+    na_pos_data_idx = []
+    for i, d in enumerate(test_data):
+        tmp = check_NegativeAsymmetry(d['query1'], d['query2'])
+        if tmp:
+            na_pos_data_idx.append(i)
+        else:
+            pass
+            tmp = check_NegativeAsymmetry1114(d['query1'], d['query2'])
+            if tmp == "neg":
+                na_neg_data_idx.append(i)
+    print("Num Negative Asymmetry items: ", len(na_neg_data_idx) + len(na_pos_data_idx))  # 12条
+
+    label_Y_idx.extend(na_pos_data_idx)
+    label_N_idx.extend(na_neg_data_idx)
+    na_data = [test_data[i] for i in na_pos_data_idx + na_neg_data_idx]
+    print("samples Negative Asymmetry:")
+    for i in range(max(5, len(na_data))):
+        print(na_data[i])
+
+    # ==================== output ====================
+    raw_result_path = "data/results/predict_result_0.9161848905525323_fuzzy-pinyin_heteronym_postop-num999.csv"
+    final_result_path = "data/results/91618_fuzzy-pinyin_heteronym_postop-num999_ss1111-as1115-na1114.csv"
 
     result_f = []
     with open(raw_result_path, 'r', encoding='utf-8') as f:
         for idx, line in enumerate(f.readlines()):
             label = int(line.strip())
             result_f.append(label)
+
+    #  检查冲突
+    assert len(set(label_Y_idx).intersection(set(label_N_idx))) == 0
 
     cnt = 0
     for f_idx in label_Y_idx:
@@ -334,5 +523,10 @@ if __name__ == '__main__':
         for label in result_f:
             f.write(str(label) + '\n')
     # ====================
+
+    with open('data/tmp_data/syntactic_structure-flag.txt', 'w', encoding='utf-8') as f:
+        for i in range(len(test_data)):
+            label = 3 if i in label_Y_idx + label_N_idx else -1
+            f.write(str(label) + '\n')
 
     print('finish')
