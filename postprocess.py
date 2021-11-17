@@ -4,7 +4,7 @@ version:
 Author: Tingyu Liu
 Date: 2021-10-11 10:09:34
 LastEditors: Tingyu Liu
-LastEditTime: 2021-11-16 15:07:28
+LastEditTime: 2021-11-17 17:22:09
 '''
 # %%
 import pandas as pd
@@ -515,7 +515,7 @@ with open('data/tmp_data/text_corrector_pinyin_idx-flag.txt', 'w', encoding='utf
 # ==============================多音字、模糊拼音纠错=================================
 
 # %%
-# ==============================词语成语替换=================================
+# ==============================读取数据=================================
 def read_text_pair(data_path, is_test=False):
     """Reads data."""
     with open(data_path, 'r', encoding='utf-8') as f:
@@ -537,8 +537,84 @@ def read_label(data_path):
             yield data
 data = read_text_pair("/home/lty/code/question_matching/data/test_A.tsv",is_test=True)
 # 提交的预测标签
-labels = read_label("/home/lty/code/question_matching/data/results/1116sota_91618_fuzzy-pinyin_heteronym_postop-num999_ss1111-as1115-na1114-neworder.csv")
+labels = read_label("/home/lty/code/question_matching/data/results/1117_jc.csv")
 
+# 一些处理adv的函数
+def check_one_adv(q1,q2,adv):
+    # 检查q1和q2是否只有一个包含了adv
+    if adv in q1 and adv not in q2:
+        return True
+    elif adv in q2 and adv not in q1:
+        return True
+    else:
+        return False
+        
+def remove_adv_same(q1,q2,adv):
+    longer = q1 if len(q1)>=len(q2) else q2
+    shorter = q2 if len(q2)<=len(q1) else q1
+    longer_no_adv = longer.replace(adv,"")
+    if longer_no_adv == shorter:
+        return True
+    else:
+        return False
+
+def check_two_dif_adv(q1,q2,adv_list_1,adv_list_2):
+    flag_1,flag_2 = False,False # 标记两类adv是否出现再不同的q中
+    # 如果q1中出现list1副词，q2出现list2副词
+    for adv in adv_list_1:
+        if adv in q1:
+            flag_1 = True
+            break
+    for adv in adv_list_2:
+        if adv in q2:
+            flag_2 = True
+            break
+    if flag_1 and flag_2:
+        return True
+    else:
+        # 如果q2中出现list1副词，q1出现list2副词
+        flag_1,flag_2 = False,False # 标记两类adv是否出现再不同的q中
+        for adv in adv_list_1:
+            if adv in q2:
+                flag_1 = True
+                break
+        for adv in adv_list_2:
+            if adv in q1:
+                flag_2 = True
+                break
+        if flag_1 and flag_2:
+            return True
+        else:
+            return False
+
+def check_two_same_adv(q1,q2,adv_list_1,adv_list_2):
+    flag_1,flag_2 = False,False # 标记两类adv是否出现再不同的q中
+    for adv in adv_list_1:
+        if adv in q1:
+            flag_1 = True
+            break
+    for adv in adv_list_1:
+        if adv in q2:
+            flag_2 = True
+            break
+    if flag_1 and flag_2:
+        return True
+    else:
+        flag_1,flag_2 = False,False # 标记两类adv是否出现再不同的q中
+        for adv in adv_list_2:
+            if adv in q1:
+                flag_1 = True
+                break
+        for adv in adv_list_2:
+            if adv in q2:
+                flag_2 = True
+                break
+        if flag_1 and flag_2:
+            return True
+        else:
+            return False
+# %%
+# ==============================词语成语替换=================================
 change_count = 0
 new_label = []
 for row,label in zip(data,labels):
@@ -556,3 +632,86 @@ with open("/home/lty/code/question_matching/data/results/1116_ciyuchengyu.csv","
         f.write(l)
         f.write("\n")
 # ==============================词语成语替换=================================
+
+# %%
+# 检测插入副词经常
+change_count = 0
+new_label = []
+for row,label in zip(data,labels):
+    q1 = row['query1']
+    q2 = row['query2']
+    if ("经常" in q1 and "经常" not in q2 and "偶尔" not in q2 and "有时" not in q2 and not "有点" in q2 and "经长" not in q2 and "常常" not in q2) or ("经常" in q2 and "经常" not in q1 and "偶尔" not in q1 and "有时" not in q1 and not "有点" in q1 and "经长" not in q1 and "常常" not in q1):
+        if label == '1': 
+            change_count+=1
+            print(q1,q2,label)
+            label = '0'
+    new_label.append(label)
+print(change_count)
+with open("/home/lty/code/question_matching/data/results/1117_jc.csv","w+") as f:
+    for l in new_label:
+        f.write(l)
+        f.write("\n")
+        
+# 更改56条
+
+        
+    
+# %%
+# 检测插入副词
+data = read_text_pair("/home/lty/code/question_matching/data/test_A.tsv",is_test=True)
+# 提交的预测标签
+labels = read_label("/home/lty/code/question_matching/data/results/1117_jc.csv")
+change_count = 0
+new_label = []
+adv_list = ["经常","经长", "老是", "常常", "一直", "总是", "反复", "偶尔", "有时", "时常"]
+for row,label in zip(data,labels):
+    q1 = row['query1']
+    q2 = row['query2']
+
+# 经常 经长 老是 常常 一直，总 频繁 总是 反复
+#  偶尔 有时 有点 时常
+    for adv in adv_list:
+        if check_one_adv(q1,q2,adv) and remove_adv_same(q1,q2,adv):
+            if label == '1': 
+                change_count+=1
+                print(q1,q2,label)
+                label = '0'
+    new_label.append(label)
+print(change_count)
+with open("/home/lty/code/question_matching/data/results/1117_insert_adv_withoutyd.csv","w+") as f:
+    for l in new_label:
+        f.write(l)
+        f.write("\n")
+# 加上“有点”更改51，去掉“有点”更改46条
+
+# %%
+# 检测两边替换副词
+data = read_text_pair("/home/lty/code/question_matching/data/test_A.tsv",is_test=True)
+# 提交的预测标签
+labels = read_label("/home/lty/code/question_matching/data/results/1117_insert_adv_withoutyd.csv")
+change_count = 0
+new_label = []
+adv_list_1 = ["经常","经长", "老是", "常常", "一直", "总是", "反复", "时常"]
+adv_list_2 = ["偶尔", "有时","有点"]
+for row,label in zip(data,labels):
+    q1 = row['query1']
+    q2 = row['query2']
+    if check_two_dif_adv(q1,q2,adv_list_1,adv_list_2):
+        if label == '1': 
+            change_count+=1
+            print(q1,q2,label)
+            label = '0'
+    # if check_two_same_adv(q1,q2,adv_list_1,adv_list_2):
+    # 查询两个句子中的同义副词
+    #     # if label == '1': 
+    #     change_count+=1
+    #     print(q1,q2,label)
+    #     label = '0'
+    new_label.append(label)
+print(change_count)
+with open("/home/lty/code/question_matching/data/results/1117_insert_adv_withoutyd_difadv.csv","w+") as f:
+    for l in new_label:
+        f.write(l)
+        f.write("\n")
+# 更改了9条
+
