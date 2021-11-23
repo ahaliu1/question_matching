@@ -4,7 +4,8 @@ version:
 Author: Tingyu Liu
 Date: 2021-11-06 22:47:50
 LastEditors: Tingyu Liu
-LastEditTime: 2021-11-09 15:39:11
+LastEditTime: 2021-11-23 22:00:47
+>>>>>>> 1e52be9b86869004c2b36086df6847736c7f72a9
 '''
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
@@ -46,8 +47,8 @@ batch_size = 160  # 训练时每个batch中的样本数
 patience = 5  # 早停轮数
 file_name = 'baseline'  # 指定输出文件的名字
 model_name_or_path = '/home/lty/work/tools/ernie-gram/'  # 预训练模型权重载入路径
-train_input = '../data/train_trans_shuf.txt'  # 完成预处理的训练集载入路径
-test_input = '../data/test_A.tsv'  # 完成预处理的测试集载入路径
+train_input = '../data/train/'  # 完成预处理的训练集载入路径
+test_input = '../data/test/'  # 完成预处理的测试集载入路径
 feature_path = './feature/' # 保存tokenlizer结果的路径
 random_seed = 42  # 随机种子
 
@@ -371,6 +372,7 @@ def prob_postprocess(y_pred):
     # prior = np.array([0.6903327690476333, 0.3096672309523667]) # 训练集 oppo正负样本比例
     prior = np.array([0.43, 0.57]) # 转译增强训练集 正负样本比例
     
+
     y_pred_uncertainty = -(y_pred * np.log(y_pred)).sum(1) / np.log(2)
 
     threshold = 0.95
@@ -407,9 +409,9 @@ def get_feature(examples,path):
 
 
 tokenizer = BertTokenizer.from_pretrained(model_name_or_path, do_lower_case=True)
-# train_examples = read_examples(train_input, split='train')
-train_examples = read_data(train_input)
-train_feature_path = "./feature/train_trans_shuf.pkl"
+
+train_examples = read_examples(train_input, split='train')
+train_feature_path = "./feature/train.pkl"
 train_features = get_feature(train_examples,train_feature_path)
 # train_features = convert_examples_to_features(
 #     train_examples, tokenizer, max_seq_length, True)
@@ -422,9 +424,8 @@ all_label = np.array([f.label for f in train_features])
 logger.info(Counter(all_label))
 
 
-# test_examples = read_examples(test_input, split='test')
-test_examples = read_data(test_input)
-test_feature_path = "./feature/test_trans_shuf.pkl"
+test_examples = read_examples(test_input, split='test')
+test_feature_path = "./feature/test.pkl"
 test_features = get_feature(test_examples,test_feature_path)
 # test_features = convert_examples_to_features(
 #     test_examples, tokenizer, max_seq_length, True)

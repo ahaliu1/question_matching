@@ -103,10 +103,27 @@ with open("/home/lty/code/question_matching/data/entity_change.txt", "w") as f:
 
 
 # %%
-from tqdm import tqdm
 # 使用微软的数字识别工具
 from recognizers_text import Culture, ModelResult
 from recognizers_number import NumberRecognizer
+
+
+def read_text_pair(data_path, is_test=False):
+    """Reads data."""
+    ret = []
+    with open(data_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            data = line.rstrip().split("\t")
+            if is_test == False:
+                if len(data) != 3:
+                    continue
+                ret.append({'query1': data[0], 'query2': data[1], 'label': data[2]})
+            else:
+                if len(data) != 2:
+                    continue
+                ret.append({'query1': data[0], 'query2': data[1]})
+    return ret
+
 
 def unify_number(data):
     """ 将text中的文本数字统一转换成阿拉伯数字 """
@@ -134,3 +151,13 @@ def unify_number(data):
 
     print("convert count: ", cnt)
     return data
+
+
+test_path = "./data/raw_data/test_B_1118.tsv"
+test_data = read_text_pair(test_path, is_test=True)
+test_unify_number = unify_number(test_data)
+with open('data/tmp_data/test_B_1118_unify_number.tsv', 'w', encoding='utf-8') as f:
+    for d in test_unify_number:
+        f.write(d['query1'] + '\t' + d['query2'] + '\n')
+
+print()
