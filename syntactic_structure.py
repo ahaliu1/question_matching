@@ -5,10 +5,6 @@ jx part: 3-针对Syntactic Structure的规则
     (1)Symmetry识别;
     (2)Asymmetry识别;
     (3)NegativeAsymmetry识别;
-PS:
-执行该后处理脚本需要提前处理好
-    1. 自定义近义词表. 用于替换一些近义词如: "男生,男孩,男孩子,男的"
-    2. 一些基于星座和生肖的搭配如: "摩羯座男", "女水瓶座", "女牛"
 """
 import json
 import argparse
@@ -18,30 +14,18 @@ import jieba
 import Levenshtein
 from LAC import LAC
 import jieba.posseg as pseg
+from recognizers_text import Culture, ModelResult
+from recognizers_number import NumberRecognizer
 
-from src.utils import get_run_time
+# from src.utils import get_run_time
 
 lac = LAC(mode='lac')
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--test_path", type=str, required=True, help="test路径")
-parser.add_argument("--test_unify_number_path", type=str, required=True, help="经过<统一数字>预处理的test路径")
 parser.add_argument("--raw_result_path", type=str, required=True, help="上一步处理后的预测结果路径")
 parser.add_argument("--final_result_path", type=str, required=True, help="本次处理预测结果输出路径")
 args = parser.parse_args()
-
-# ======================= 修改词表 =======================
-# 载入自定义的近义词表
-similar_words_path = "data/tmp_data/similar_words.txt"
-similar_words_dict = {}
-with open(similar_words_path, 'r', encoding='utf-8') as f:
-    for line in f.readlines():
-        words = line.strip().split(',')
-        for i in range(len(words)):
-            similar_words_dict[words[i]] = words[0]  # key为被替换的词，value为替换后的词（同一行的第一个词）
-
-# 载入lac自定义词表
-lac.load_customization('data/lac_custom.txt', sep=None)
 
 
 def read_text_pair(data_path, is_test=False):
@@ -69,6 +53,34 @@ def find_k_idx(pseg_cut_res, k):
                 k_idx = idx
                 break
     return k_idx
+
+
+def unify_number(data):
+    """ 将text中的文本数字统一转换成阿拉伯数字 """
+    recognizer = NumberRecognizer(Culture.Chinese)
+    model = recognizer.get_number_model()
+
+    cnt = 0
+    for i, d in tqdm(enumerate(data), desc="#unify_number#"):
+        for qk in ["query1", "query2"]:
+            query = d[qk]
+            res = model.parse(query)
+            if len(res) == 0:
+                continue
+
+            idx = 0
+            new_query = ""
+            for item in res:
+                new_query += query[idx: item.start]
+                new_query += item.resolution['value']
+                idx = item.end + 1
+                if not item.text.isnumeric():
+                    cnt += 1
+            new_query += query[idx:]
+            data[i][qk] = new_query
+
+    print("convert count: ", cnt)
+    return data
 
 
 # ======================= Symmetry =======================
@@ -311,22 +323,6 @@ def check_NegativeAsymmetry(q1, q2):
         pseg_res1 = [[w, f] for w, f in pseg.cut(q1)]
         pseg_res2 = [[w, f] for w, f in pseg.cut(q2)]
 
-        # 同义词替换 - 预处理
-        for i in range(len(pseg_res1)):
-            ori_word = pseg_res1[i][0]
-            if ori_word in similar_words_dict:
-                tmp = pseg.lcut(similar_words_dict[ori_word])
-                assert len(tmp) == 1
-                pseg_res1[i][0] = tmp[0].word
-                pseg_res1[i][1] = tmp[0].flag
-        for i in range(len(pseg_res2)):
-            ori_word = pseg_res2[i][0]
-            if ori_word in similar_words_dict:
-                tmp = pseg.lcut(similar_words_dict[ori_word])
-                assert len(tmp) == 1
-                pseg_res2[i][0] = tmp[0].word
-                pseg_res2[i][1] = tmp[0].flag
-
         def get_bi_adj_idx(pseg_res):
             """ 从pos segment结果中获取'比'和adj的位置 """
 
@@ -391,22 +387,6 @@ def check_NegativeAsymmetry1114(q1, q2):
         pseg_res1 = [[tmp[0][i], tmp[1][i]] for i in range(len(tmp[0]))]
         tmp = lac.run(q2)
         pseg_res2 = [[tmp[0][i], tmp[1][i]] for i in range(len(tmp[0]))]
-
-        # 同义词替换
-        for i in range(len(pseg_res1)):
-            ori_word = pseg_res1[i][0]
-            if ori_word in similar_words_dict:
-                tmp = pseg.lcut(similar_words_dict[ori_word])
-                assert len(tmp) == 1
-                pseg_res1[i][0] = tmp[0].word
-                pseg_res1[i][1] = tmp[0].flag
-        for i in range(len(pseg_res2)):
-            ori_word = pseg_res2[i][0]
-            if ori_word in similar_words_dict:
-                tmp = pseg.lcut(similar_words_dict[ori_word])
-                assert len(tmp) == 1
-                pseg_res2[i][0] = tmp[0].word
-                pseg_res2[i][1] = tmp[0].flag
 
         def get_bi_adj_idx(pseg_res):
             """ 获取"比"和形容词在句中的位置(pseg_idx) """
@@ -560,16 +540,15 @@ def lac_run_to_pseg_cut(text):
 
 
 def main():
-    run_time = get_run_time()
-    print("run time:", run_time)
+    # run_time = get_run_time()
+    # print("run time:", run_time)
 
     test_path = args.test_path
     test_data = read_text_pair(test_path, is_test=True)
     print("load test data from: ", test_path)
 
-    test_unify_number_path = args.test_unify_number_path
-    test_unify_number = read_text_pair(test_unify_number_path, True)
-    print("use unify number data")
+    test_unify_number = unify_number(test_data)
+    print("unify number data")
 
     label_Y_idx = set()
     label_N_idx = set()
@@ -655,15 +634,15 @@ def main():
         for label in result_f:
             f.write(str(label) + '\n')
     # ====================
-    flag = 3
-    with open(f'data/tmp_data/test_B-syntactic_structure-flag_{run_time}.txt', 'w', encoding='utf-8') as f:
-        for i in range(len(test_data)):
-            label = 0  # 未改动
-            if i in label_Y_idx:
-                label = flag
-            elif i in label_N_idx:
-                label = -flag
-            f.write(str(label) + '\n')
+    # flag = 3
+    # with open(f'data/tmp_data/test_B-syntactic_structure-flag_{run_time}.txt', 'w', encoding='utf-8') as f:
+    #     for i in range(len(test_data)):
+    #         label = 0  # 未改动
+    #         if i in label_Y_idx:
+    #             label = flag
+    #         elif i in label_N_idx:
+    #             label = -flag
+    #         f.write(str(label) + '\n')
 
     print('finish')
 

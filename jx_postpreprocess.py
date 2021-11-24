@@ -13,8 +13,7 @@ import Levenshtein
 from LAC import LAC
 import jieba.analyse
 
-from data_pt import read_text_pair
-from src.utils import get_run_time
+# from src.utils import get_run_time
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--test_path", type=str, required=True, help="test路径")
@@ -23,6 +22,23 @@ parser.add_argument("--final_result_path", type=str, required=True, help="本次
 args = parser.parse_args()
 
 lac = LAC(mode='rank')
+
+
+def read_text_pair(data_path, is_test=False):
+    """Reads data."""
+    ret = []
+    with open(data_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            data = line.rstrip().split("\t")
+            if is_test == False:
+                if len(data) != 3:
+                    continue
+                ret.append({'query1': data[0], 'query2': data[1], 'label': data[2]})
+            else:
+                if len(data) != 2:
+                    continue
+                ret.append({'query1': data[0], 'query2': data[1]})
+    return ret
 
 
 # ==================== 数字识别 ====================
@@ -281,22 +297,9 @@ def get_insert_words(query1, query2):
     return pos_to_word
 
 
-def check_unchangeable_word(query1, query2):
-    unchangeable_word = [
-        ["翻译", "英语", "英语翻译", "英文", "英文翻译", "英文单词"],
-        ["近义词", "同义词"],
-        ["反义词"],
-        ["含义", "意思"],
-        ["造句"],
-        ["组词"],
-    ]
-
-    suffix_lst2 = ["是什么", "怎么说", "怎么写"]
-
-
 def main():
-    run_time = get_run_time()
-    print("run time:", run_time)
+    # run_time = get_run_time()
+    # print("run time:", run_time)
 
     test_path = args.test_path
     test_data = read_text_pair(test_path, is_test=True)
@@ -310,65 +313,6 @@ def main():
         if check_number(d['query1'], d['query2'], 999):
             label_N_idx.add(i)
     # ========== 数字识别 ============
-
-    # # ========== insert 识别 ============
-    # test_data = read_text_pair('data/raw_data/test_A.tsv', True)
-
-    # idea1
-    # insert_word = pd.read_csv('data/tmp_data/insert_words.tsv', sep='\t')
-    # insert_word2prob = {
-    #     w: p
-    #     for w, p in zip(insert_word['word'], insert_word['prob'])
-    # }
-    #
-    # # fix_idx_pos = []
-    # # fix_idx_neg = []
-    # np.random.seed(42)
-    # for i, d in enumerate(test_data):
-    #     w = check_insert(d['query1'], d['query2'])
-    #     if w in insert_word2prob:
-    #         prob = insert_word2prob[w]
-    #         if prob > 0.9:
-    #             fix_idx_pos.append(i)
-    #         elif prob < 0.1:
-    #             fix_idx_neg.append(i)
-
-    # # idea2：11-17 形容词插入识别
-    # insert_adj_idx = []
-    # for i, d in tqdm(enumerate(test_data), desc='#check_insert_adj#'):
-    #     if check_insert_adj(d['query1'], d['query2']):
-    #         insert_adj_idx.append(i)
-    # fix_idx_neg.extend(insert_adj_idx)
-    # print("Num of insert adj items: ", len(insert_adj_idx))
-    # print("samples insert adj items:")
-    # insert_adj_data = [test_data[i] for i in insert_adj_idx]
-    # for i in range(min(5, len(insert_adj_idx))):
-    #     print(insert_adj_data[i])
-    #
-    # ##
-    # with open('data/tmp_data/insert_adj.txt', 'w', encoding='utf-8') as f:
-    #     for item in insert_adj_data:
-    #         f.write(item['query1'] + '\t' + item['query2'] + '\n')
-    # # ========== insert 识别 ============
-
-    # # ========== 实体替换识别 ============
-    # # 误差太大
-    #
-    # # test_data = read_text_pair('data/raw_data/test_A.tsv', True)
-    #
-    # # fix_idx_pos = []
-    # # fix_idx_neg = []
-    # for i, d in tqdm(enumerate(test_data), desc='#check_entity_replace#'):
-    #     for e_type in ['PER']:  # todo: 更多
-    #         if check_entity_replace(d['query1'], d['query2'], max_op_times=999, entity_type=e_type):
-    #             fix_idx_neg.append(i)
-    #             break
-    #
-    # fix_idx_pos = list(set(fix_idx_pos))
-    # fix_idx_neg = list(set(fix_idx_neg))
-    # print("Num of fix_idx_pos items: ", len(fix_idx_pos))
-    # print("Num of fix_idx_neg items: ", len(fix_idx_neg))
-    # # ========== 实体替换识别 ============
 
     print("Num of label_Y_idx items: ", len(label_Y_idx))
     print("Num of label_N_idx items: ", len(label_N_idx))
@@ -401,16 +345,16 @@ def main():
     with open(final_result_path, 'w', encoding='utf-8') as f:
         for i, label in enumerate(result_f):
             f.write(str(label) + '\n')
-
-    flag = 2
-    with open(f'data/tmp_data/test_B-postop_insert_idx-flag_{run_time}.txt', 'w', encoding='utf-8') as f:
-        for i in range(len(test_data)):
-            label = 0  # 未改动
-            if i in label_Y_idx:
-                label = flag
-            elif i in label_N_idx:
-                label = -flag
-            f.write(str(label) + '\n')
+    #
+    # flag = 2
+    # with open(f'data/tmp_data/test_B-postop_insert_idx-flag_{run_time}.txt', 'w', encoding='utf-8') as f:
+    #     for i in range(len(test_data)):
+    #         label = 0  # 未改动
+    #         if i in label_Y_idx:
+    #             label = flag
+    #         elif i in label_N_idx:
+    #             label = -flag
+    #         f.write(str(label) + '\n')
 
 
 if __name__ == '__main__':

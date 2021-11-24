@@ -11,7 +11,7 @@ from tqdm import tqdm
 from pypinyin import pinyin, Style
 
 from chinese_fuzzy_match import *
-from src.utils import get_run_time
+# from src.utils import get_run_time
 
 from string import punctuation as en_punc
 from zhon.hanzi import punctuation as zh_punc
@@ -86,8 +86,8 @@ def fuzzy_match(query1, query2):
 
 
 def main():
-    run_time = get_run_time()
-    print("run time:", run_time)
+    # run_time = get_run_time()
+    # print("run time:", run_time)
 
     test_path = args.test_path
     test_data = read_text_pair(test_path, is_test=True)
@@ -161,15 +161,15 @@ def main():
         for i, label in enumerate(result_f):
             f.write(str(label) + '\n')
 
-    flag = 1
-    with open(f'data/tmp_data/test_B-text_corrector_pinyin_idx-flag_{run_time}.txt', 'w', encoding='utf-8') as f:
-        for i in range(len(test_data)):
-            label = 0  # 未改动
-            if i in label_Y_idx:
-                label = flag
-            elif i in label_N_idx:
-                label = -flag
-            f.write(str(label) + '\n')
+    # flag = 1
+    # with open(f'data/tmp_data/test_B-text_corrector_pinyin_idx-flag_{run_time}.txt', 'w', encoding='utf-8') as f:
+    #     for i in range(len(test_data)):
+    #         label = 0  # 未改动
+    #         if i in label_Y_idx:
+    #             label = flag
+    #         elif i in label_N_idx:
+    #             label = -flag
+    #         f.write(str(label) + '\n')
 
 
 if __name__ == '__main__':
