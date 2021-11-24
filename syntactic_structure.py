@@ -31,11 +31,6 @@ parser.add_argument("--final_result_path", type=str, required=True, help="本次
 args = parser.parse_args()
 
 # ======================= 修改词表 =======================
-# 修改结巴分词，使得分词的时候这些词能够被正确切分
-jieba.add_word('身高', tag='n', freq=1000)
-jieba.add_word('北京大学', tag='nt', freq=1000)
-jieba.suggest_freq(['北京大学', '哲学系'], tune=True)
-
 # 载入自定义的近义词表
 similar_words_path = "data/tmp_data/similar_words.txt"
 similar_words_dict = {}
@@ -47,12 +42,6 @@ with open(similar_words_path, 'r', encoding='utf-8') as f:
 
 # 载入lac自定义词表
 lac.load_customization('data/lac_custom.txt', sep=None)
-lac.add_word('蓬安/LOC')
-lac.add_word('风油精/n')
-lac.add_word('vivo/ORG')
-lac.add_word('南伞/LOC')
-lac.add_word('伊可新/nz')
-lac.add_word('屏南/LOC')
 
 
 def read_text_pair(data_path, is_test=False):
@@ -176,12 +165,7 @@ def check_Symmetry1122(q1, q2):
         w1 = q1[res_exchange[0][0]: res_exchange[0][1] + 1]
         w2 = q1[res_exchange[1][0]: res_exchange[1][1] + 1]
 
-        # (补充5. )巨蟹座女与双子座男配吗
-        if (("座女" in q1 and "座男" in q2) or ("座女" in q2 and "座男" in q1)) and (len(w1) == len(w2) < 4):
-            if not check_Symmetry(q1, q2):
-                return False
-
-        for k in ['和', '与', '及', '又', '还是', '跟'] + ["乘以", "加", "乘", "✖", "×", "+", "＋"] + ['炒', '爆', '煎']:
+        for k in ['和', '与', '及', '又', '还是', '跟'] + ["乘以", "加", "乘", "✖", "×", "+", "＋"] + ['炒', '爆', '煎', '晒']:
             if k in q1 and k in q2:
                 idx_k_1 = q1.find(k, res_exchange[0][1] + 1, res_exchange[1][0])
                 if res_exchange[0][1] + 1 == idx_k_1 == res_exchange[1][0] - len(k):
@@ -191,13 +175,11 @@ def check_Symmetry1122(q1, q2):
 
                     if w1.strip('.').isdigit() and w2.strip('.').isdigit():  # 若交换的两个都是数字,则需要用分词再检查一次(分词工具对于数字边界识别得更好)
                         return check_Symmetry(q1, q2)
-                    if q1[res_exchange[0][1] + 1: res_exchange[1][0]].find("过量") != -1:
-                        return False
                     return True
 
         # (补充1.)距离 & 距离相关的时间
         # 235(加了距离后的ss样本数
-        if lac.run(w1)[1][0] == lac.run(w2)[1][0]:
+        if (lac.run(w1)[1][0] == lac.run(w2)[1][0]) or lac.run(w1)[1][0] == 'LOC' or lac.run(w2)[1][0] == 'LOC':
             dist_words = ['距离', '多远', '公里', '多少米', '多少千米', '几米']
             for k in dist_words:
                 if '时间表' in q1 and '时间表' in q2:
@@ -214,11 +196,6 @@ def check_Symmetry1122(q1, q2):
         if res_exchange2[0][1] + 1 == res_exchange2[1][0] and \
                 q1[res_exchange2[0][0]] == q1[res_exchange2[1][0]]:  # 两个交换的单词紧邻 & 它们首字符相同
             return True
-
-        # (补充3.) 黄疸晒太阳
-        if ("黄疸晒太阳" in q1 or "黄疸晒太阳" in q2):
-            if (w1 == "黄疸" or w1 == "太阳") and (w2 == "黄疸" or w2 == "太阳"):
-                return True
 
         # (补充4.) 怎么和其他东西交换
         if "怎么" == w1 or "怎么" == w2:
@@ -267,7 +244,7 @@ def check_Asymmetry1122(q1, q2):
         'c',  # 连词
         'u',  # 助词
     ]
-    negation_word_pairs = [
+    negation_word_pairs = [  # 否定词对
         ('有', '不'),
         ('只', '不'),
         ('得', '失'),
