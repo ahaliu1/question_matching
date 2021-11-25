@@ -20,6 +20,12 @@ from recognizers_number import NumberRecognizer
 # from src.utils import get_run_time
 
 lac = LAC(mode='lac')
+# 载入地名词典
+print("load LOC dict...")
+with open('data/Chinese-gov-LOC.txt', 'r', encoding='utf-8') as f:
+    for line in f.readlines():
+        line = line.strip()
+        lac.add_word(line+'/LOC')
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--test_path", type=str, required=True, help="test路径")
@@ -184,7 +190,8 @@ def check_Symmetry1122(q1, q2):
                     return True
 
                 if res_exchange[0][1] < idx_k_1 < res_exchange[1][0]:
-
+                    if res_exchange[0][0] == 0 and idx_k_1 + len(k) != res_exchange[1][0]:
+                        return False
                     if w1.strip('.').isdigit() and w2.strip('.').isdigit():  # 若交换的两个都是数字,则需要用分词再检查一次(分词工具对于数字边界识别得更好)
                         return check_Symmetry(q1, q2)
                     return True
