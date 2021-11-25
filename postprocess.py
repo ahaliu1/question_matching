@@ -30,7 +30,7 @@ def read_label(data_path):
             yield data
 data = read_text_pair("/home/lty/code/question_matching/data/test/test_B_1118.tsv",is_test=True)
 # 提交的预测标签
-labels = read_label("/home/lty/code/question_matching/data/results/torch_B.csv")
+labels = read_label("/home/lty/code/question_matching/submit/model_origin_result.csv")
 
 # 一些处理adv的函数
 def check_one_adv(q1,q2,adv):
@@ -263,26 +263,27 @@ for row,label in zip(data,labels):
                 change_count_7 +=1
                 label  =  '0'
 
-            # 检测农历阴历阳历，今天最近
-            find_list = [{'读'},{'拼'},{'阳'},{'农'},{'阴'},{'今', '天'},{'近', '最'},{'今'},{'明'}]
-            a_list = ["阴历","农历"]
-            b_list = ["阳历"]
-            c_list =["读音"]
-            d_list=["拼音"]
-            e1_list =["今日","今天"]
-            e2_list=["最近","近期","近日"]
-            e3_list=["明天","明日"]
-            e4_list=["前天"]
+        # 检测农历阴历阳历，今天最近
+        find_list = [{'读'},{'拼'},{'阳'},{'农'},{'阴'},{'今', '天'},{'近', '最'},{'今'},{'明'}]
+        a_list = ["阴历","农历"]
+        b_list = ["阳历"]
+        c_list =["读音"]
+        d_list=["拼音"]
+        e1_list =["今日","今天"]
+        e2_list=["最近","近期","近日"]
+        e3_list=["明天","明日"]
+        e4_list=["前天"]
 
-            
-            if dif in find_list:
-                if check_two_dif_adv(q1,q2,a_list,b_list) or check_two_dif_adv(q1,q2,e1_list,e2_list):
-                        print(q1, q2,label)
-                        print(dif)
-                        change_count+=1
-                        label  =  '0'
-
-
+        
+        longer = q1 if len(q1)>=len(q2) else q2
+        shorter = q2 if len(q2)<=len(q1) else q1
+        dif = set(longer)-set(shorter)
+        if dif in find_list:
+            if check_two_dif_adv(q1,q2,a_list,b_list) or check_two_dif_adv(q1,q2,e1_list,e2_list):
+                    print(q1, q2,label)
+                    print(dif)
+                    change_count+=1
+                    label  =  '0'
 
     new_label.append(label)
 
@@ -297,11 +298,11 @@ print("形容词插入",change_count_7)
 
 print("total",change_count)
 
-# # 写入提交文件
-# with open("/home/lty/code/question_matching/data/results/torch_B_ltypre.csv","w+") as f:
-#     for l in new_label:
-#         f.write(l)
-#         f.write("\n")
+# 写入提交文件
+with open("/home/lty/code/question_matching/submit/ltyoldprocess.csv","w+") as f:
+    for l in new_label:
+        f.write(l)
+        f.write("\n")
 
 # 将原始数据与标签写入
 # data = read_text_pair("/home/lty/code/question_matching/data/test/test_B_1118.tsv",is_test=True)

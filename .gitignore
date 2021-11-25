@@ -8,6 +8,8 @@ data
 model_save
 feature
 submit
+torch_baseline/output
+torch_baseline/*.csv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
