@@ -30,7 +30,7 @@ def read_label(data_path):
             yield data
 data = read_text_pair("/home/lty/code/question_matching/data/test/test_B_1118.tsv",is_test=True)
 # 提交的预测标签
-labels = read_label("/home/lty/code/question_matching/torch_baseline/output/predict_result_0.362384667391362.csv")
+labels = read_label("/home/lty/code/question_matching/data/results/torch_B.csv")
 
 # 一些处理adv的函数
 def check_one_adv(q1,q2,adv):
@@ -422,10 +422,10 @@ print(change_count)
 # ==============================检测插入副词“老”包含词性过滤=================================
 from pyhanlp import *
 ha_model = HanLP.newSegment()
-data = read_text_pair("/home/lty/code/question_matching/data/test_A.tsv",is_test=True)
+data = read_text_pair("/home/lty/code/question_matching/data/test/test_B_1118.tsv",is_test=True)
 # 提交的预测标签
-# labels = read_label("/home/lty/code/question_matching/data/results/1117_jc.csv")
-labels = read_label("/home/lty/code/question_matching/data/results/1118_sota_insert-bu-withoutxiaobu_shici_ss1118-as1118-na1118-neworder.csv")
+labels = read_label("/home/lty/code/question_matching/data/results/torch_B.csv")
+
 change_count = 0
 new_label = []
 adv_list = ["老"]
@@ -450,8 +450,34 @@ print(change_count)
 #         f.write(l)
 #         f.write("\n")
 
+# %%
+#!TODO:改成lac的
+# https://github.com/baidu/lac
+from LAC import LAC
+data = read_text_pair("/home/lty/code/question_matching/data/test/test_B_1118.tsv",is_test=True)
+# 提交的预测标签
+labels = read_label("/home/lty/code/question_matching/data/results/torch_B.csv")
 
-
+lac = LAC(mode='lac')
+change_count = 0
+new_label = []
+adv_list = ["老"]
+for row,label in zip(data,labels):
+    q1 = row['query1']
+    q2 = row['query2']
+    for adv in adv_list:
+        if check_one_adv(q1,q2,adv) and remove_adv_same(q1,q2,adv):
+            q1_seg = lac.run(q1)
+            q2_seg = lac.run(q2)
+            if label == '1': 
+                if("老" in q1_seg[0] or "老" in q2_seg[0]):
+                    change_count+=1
+                    print(q1,q2,label)
+                    # print(q1_list)
+                    # print(q2_list)
+                    label = '0'
+    new_label.append(label)
+print(change_count)
 # %%
 # ==============================检测两边替换副词=================================
 
