@@ -1,5 +1,8 @@
 # 2021千言-问题匹配鲁棒性评测B榜第六名方案
 任务地址：https://www.datafountain.cn/competitions/516
+
+最终提交方案：https://gitee.com/aha_liu1/question_matching
+
 ## baseline/
 比赛官方提供的基于paddlepaddle的ERNIE baseline。
 
@@ -50,9 +53,7 @@ train_en.txt;train_en_ch.txt将训练集query1翻译成英文后再翻译回中�
 aug/ 地名增强数据及基于大词林的近义词增强。
 
 ## torch_baseline
-大佬提供的pytorch版本RENIE模型，相比于paddle模型做了一些改进，最终提交结果是基于这个模型的输出
-
-https://zhuanlan.zhihu.com/p/427995338
+pytorch版本RENIE模型，相比于paddle模型做了一些改进，最终提交结果是基于这个模型的输出
 
 ## postprocess.py
 
